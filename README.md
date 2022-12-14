@@ -1,5 +1,6 @@
 ## HEXA: Human Demo Augmented Explorer and Achiever
 
+<img src="https://github.com/karthik19967829/hexa-benchmark/blob/main/Figure5-1.png" width="1000">
 
 <img src="https://russellmendonca.github.io/data/lexa-method.gif" width="600">
 
