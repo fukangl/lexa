@@ -77,6 +77,10 @@ class CollectDataset:
 
   def step(self, action):
     obs, reward, done, info = self._env.step(action)
+    #print("obs.keys",obs.items())
+    '''for k, v in obs.items():
+      print("key value",k)
+      v = self._convert(v,k)'''
     obs = {k: self._convert(v) for k, v in obs.items()}
     transition = obs.copy()
     transition['action'] = action
@@ -86,6 +90,7 @@ class CollectDataset:
     self._episode.append(transition)
     if done:
       episode = {k: [t[k] for t in self._episode] for k in self._episode[0]}
+      #import ipdb;ipdb.set_trace()
       episode = {k: self._convert(v) for k, v in episode.items()}
       episode['idx_repeated'] = np.ones(len(episode['reward']), dtype=np.int32)*self._env.get_goal_idx()
       info['episode'] = episode
@@ -93,8 +98,10 @@ class CollectDataset:
         callback(episode)
     return obs, reward, done, info
 
-  def reset(self):
-    obs = self._env.reset()
+  def reset(self,start_state=None):
+    obs = self._env.reset(start_state=start_state)
+    #obs['state'] = self._env.sim.get_state()
+    #print("first reset",obs['state'].shape)
     transition = obs.copy()
     transition['action'] = np.zeros(self._env.action_space.shape)
     transition['reward'] = 0.0
@@ -109,8 +116,16 @@ class CollectDataset:
     elif np.issubdtype(value.dtype, np.signedinteger):
       dtype = {16: np.int16, 32: np.int32, 64: np.int64}[self._precision]
     elif np.issubdtype(value.dtype, np.uint8):
-      dtype = np.uint8
+      dtype = np.uint8  
     else:
+      '''for i in range(len(value)):
+        print("ele value shape",value[i].shape)'''
+      #return value
+      #print("value:",value)
+      #print("value dtype",value.dtype)
+      #print("type of value",type(value))
+      #print("key",key)
+      #import pdb;pdb.set_trace()
       raise NotImplementedError(value.dtype)
     return value.astype(dtype)
 
@@ -136,9 +151,9 @@ class TimeLimit:
       self._step = None
     return obs, reward, done, info
 
-  def reset(self):
+  def reset(self,start_state=None):
     self._step = 0
-    return self._env.reset()
+    return self._env.reset(start_state=start_state)
 
 
 class NormalizeActions:
@@ -191,8 +206,8 @@ class OneHotAction:
       raise ValueError(f'Invalid one-hot action:\n{action}')
     return self._env.step(index)
 
-  def reset(self):
-    return self._env.reset()
+  def reset(self,start_state=None):
+    return self._env.reset(start_state=start_state)
 
   def _sample_action(self):
     actions = self._env.action_space.n
@@ -222,7 +237,7 @@ class RewardObs:
     obs['reward'] = reward
     return obs, reward, done, info
 
-  def reset(self):
-    obs = self._env.reset()
+  def reset(self,start_state=None):
+    obs = self._env.reset(start_state=start_state)
     obs['reward'] = 0.0
     return obs

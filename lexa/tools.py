@@ -126,7 +126,7 @@ class Logger:
     if fps:
       scalars.append(('fps', self._compute_fps(self.step)))
     # print(f'[{self.step}]: {self._logdir} , ', ' / '.join(f'{k} {v:.1f}' for k, v in scalars))
-    print('step', self.step)
+    #print('step', self.step)
     with (self._logdir / 'metrics.jsonl').open('a') as f:
       f.write(json.dumps({'step': self.step, ** dict(scalars)}) + '\n')
     with self._writer.as_default():
@@ -209,7 +209,7 @@ def log_eval_metrics(logger, log_prefix, eval_dir, num_eval_eps):
         logger.scalar(log_prefix + 'avg/'+ key, _avg)
     logger.write()
 
-def simulate(agent, envs, steps=0, episodes=0, state=None):
+def simulate(agent, envs, steps=0, episodes=0, state=None, start_state=None):
   # Initialize or unpack simulation state.
   if state is None:
     step, episode = 0, 0
@@ -229,7 +229,9 @@ def simulate(agent, envs, steps=0, episodes=0, state=None):
       # promises = [envs[i].reset(blocking=False) for i in indices]
       # for index, promise in zip(indices, promises):
       #   obs[index] = promise()
-      results = [envs[i].reset() for i in indices]
+      #print("types",[type(envs[i]) for i in range(len(envs))])
+      #import ipdb;ipdb.set_trace()
+      results = [envs[i].reset(start_state) for i in indices]
       for index, result in zip(indices, results):
         obs[index] = result
   

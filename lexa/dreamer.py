@@ -320,7 +320,7 @@ def create_envs(config, logger):
     directory = config.evaldir
   eval_eps = tools.load_episodes(directory, limit=1)
   make = functools.partial(make_env, config, logger, train_eps=train_eps, eval_eps=eval_eps)
-  train_envs = [make('train', log_per_goal=True) for _ in range(config.envs)]
+  train_envs = [make('train', use_goal_idx=True, log_per_goal=True) for _ in range(config.envs)]
   eval_envs = [make('eval', use_goal_idx=True, log_per_goal=config.test_log_per_goal) for _ in range(config.envs)]
   acts = train_envs[0].action_space
   config.num_actions = acts.n if hasattr(acts, 'n') else acts.shape[0]

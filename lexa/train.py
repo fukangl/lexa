@@ -81,15 +81,16 @@ def process_eps_data(eps_data):
 def main(logdir, config):
   logdir, logger = setup_dreamer(config, logdir)
   eval_envs, eval_eps, train_envs, train_eps, acts = create_envs(config, logger)
-
   prefill = max(0, config.prefill - count_steps(config.traindir))
   print(f'Prefill dataset ({prefill} steps).')
+  #import ipdb 
+  #ipdb.set_trace()
   random_agent = lambda o, d, s: ([acts.sample() for _ in d], s)
   tools.simulate(random_agent, train_envs, prefill)
   if count_steps(config.evaldir) == 0:
     tools.simulate(random_agent, eval_envs, episodes=1)
   logger.step = config.action_repeat * count_steps(config.traindir)
-
+  print("training has reached checkpoint 1")  
   print('Simulate agent.')
   train_dataset = make_dataset(train_eps, config)
   eval_dataset = iter(make_dataset(eval_eps, config))
@@ -99,40 +100,55 @@ def main(logdir, config):
     agent._should_pretrain._once = False
 
   pathlib.Path(logdir / "distance_func_logs_trained_model").mkdir(parents=True, exist_ok = True)
-
+  
   state = None
   assert len(eval_envs) == 1
+
+  #load states from teleop demo 
+  with open('demo_state_list.pkl', 'rb') as f:
+      all_demo_state_list = pickle.load(f)
+  print("total number of steps",len(all_demo_state_list))
+  #selecting a subset from the teleop demo 
+  selected_indices = [0,100,180,200]
+  selected_demo_state_list = []
+  for index in selected_indices:
+    selected_demo_state_list.append(all_demo_state_list[index])
+
   while agent._step.numpy().item() < config.steps:
-    logger.write()
-    print('Start gc evaluation.')
     executions = []
     goals = []
-    #rews_across_goals = []
-    num_goals = min(100, len(eval_envs[0].get_goals()))
     all_eps_data = []
-    num_eval_eps = 1
-    for ep_idx in range(num_eval_eps):
-      ep_data_across_goals = []
-      for idx in range(num_goals):
-        eval_envs[0].set_goal_idx(idx)
+    for index,demo_state in enumerate(selected_demo_state_list):
+      eval_envs[0].set_goal_idx(index)
+      #train_envs[0].set_goal_idx(index)
+      eval_envs[0].set_state(demo_state)
+      train_envs[0].set_state(demo_state)
+      logger.write()
+      print('Start gc evaluation.')  
+      #rews_across_goals = []
+      num_goals = min(100, len(eval_envs[0].get_goals()))
+      #print("numer of goals",num_goals)
+      num_eval_eps = 1
+      for ep_idx in range(num_eval_eps):
+        ep_data_across_goals = []  
+        #for idx in range(num_goals):
         eval_policy = functools.partial(agent, training=False)
-        sim_out = tools.simulate(eval_policy, eval_envs, episodes=1)
+        #import ipdb;ipdb.set_trace()
+        #print("demo state shape",demo_state.shape)
+        sim_out = tools.simulate(eval_policy, eval_envs, episodes=1, start_state=demo_state)
         obs, eps_data = sim_out[4], sim_out[6]
-
         ep_data_across_goals.append(process_eps_data(eps_data))
         video = eval_envs[0]._convert([t['image'] for t in eval_envs[0]._episode])
         executions.append(video[None])
         goals.append(obs[0]['image_goal'][None])
-
-      all_eps_data.append(ep_data_across_goals)
-
-    if ep_idx == 0:
-      executions = np.concatenate(executions, 0)
-      goals = np.stack(goals, 0)
-      goals = np.repeat(goals, executions.shape[1], 1)
-      gc_video = np.concatenate([goals, executions], -3)
-      agent._logger.video(f'eval_gc_policy', gc_video)
-      logger.write()
+        all_eps_data.append(ep_data_across_goals)
+        #if ep_idx == 0:
+    executions = np.concatenate(executions, 0)
+    goals = np.stack(goals, 0)
+    goals = np.repeat(goals, executions.shape[1], 1)
+    gc_video = np.concatenate([goals, executions], -3)
+    agent._logger.video(f'eval_gc_policy', gc_video)
+    logger.write()
 
     with pathlib.Path(logdir / ("distance_func_logs_trained_model/step_"+str(logger.step)+".pkl") ).open('wb') as f:
       pickle.dump(all_eps_data, f)
